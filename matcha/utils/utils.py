@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
 import gdown
+import matplotlib
+matplotlib.use("Agg")  # Use non-interactive backend to avoid Tkinter errors in headless runs
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -136,9 +138,15 @@ def intersperse(lst, item):
 
 
 def save_figure_to_numpy(fig):
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
     return data
+
+# def save_figure_to_numpy(fig):
+#     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+#     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+#     return data
 
 
 def plot_tensor(tensor):

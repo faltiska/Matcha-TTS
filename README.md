@@ -41,8 +41,11 @@ You can also [try 🍵 Matcha-TTS in your browser on HuggingFace 🤗 spaces](ht
 1. Create an environment (suggested but optional)
 
 ```
-conda create -n matcha-tts python=3.10 -y
-conda activate matcha-tts
+sudo apt update
+sudo apt install build-essential python3-dev
+uv venv --python 3.10
+uv pip install torch torchaudio torchvision torchmetrics torchcodec --index-url https://download.pytorch.org/whl/cu130
+source .venv/bin/activate
 ```
 
 2. Install Matcha TTS using pip or from source
@@ -143,7 +146,7 @@ valid_filelist_path: data/filelists/ljs_audio_text_val_filelist.txt
 5. Generate normalisation statistics with the yaml file of dataset configuration
 
 ```bash
-matcha-data-stats -i ljspeech.yaml
+matcha-data-stats -i corpus-small.yaml
 # Output:
 #{'mel_mean': -5.53662231756592, 'mel_std': 2.1161014277038574}
 ```
@@ -160,32 +163,44 @@ to the paths of your train and validation filelists.
 
 6. Run the training script
 
+Edit the configs/train.yaml and point to your corpus, then run:
+
+```bash
+python matcha/train.py trainer.precision=bf16-mixed
+```
+then monitor it with:
+```bash
+uv pip install tensorflow
+tensorboard --logdir=logs/train/corpus-small/runs/2025-11-16_12-55-43/tensorboard/version_0
+```
+
 ```bash
 make train-ljspeech
 ```
-
 or
-
 ```bash
 python matcha/train.py experiment=ljspeech
 ```
 
 - for a minimum memory run
-
 ```bash
 python matcha/train.py experiment=ljspeech_min_memory
 ```
 
 - for multi-gpu training, run
-
 ```bash
 python matcha/train.py experiment=ljspeech trainer.devices=[0,1]
 ```
 
 7. Synthesise from the custom trained model
-
 ```bash
 matcha-tts --text "<INPUT TEXT>" --checkpoint_path <PATH TO CHECKPOINT>
+
+matcha-tts --text "It was a dark and stormy night; the rain fell in torrents, except at occasional intervals, when it was checked by a violent gust of wind that swept up the streets (for it is in London that our scene lies), rattling along the housetops, and fiercely agitating the scanty flame of the lamps that struggled against the darkness." \
+--checkpoint_path logs/train/corpus-small/runs/2025-11-16_16-33-03/checkpoints/checkpoint_epoch=999.ckpt --vocoder hifigan_univ_v1 --steps 50
+
+matcha-tts --text "It was a dark and stormy night; the rain fell in torrents, except at occasional intervals, when it was checked by a violent gust of wind that swept up the streets (for it is in London that our scene lies), rattling along the housetops, and fiercely agitating the scanty flame of the lamps that struggled against the darkness." \
+--checkpoint_path logs/train/corpus-small/runs/2025-11-16_16-33-03/checkpoints/checkpoint_epoch=999.ckpt --vocoder hifigan_T2_v1 --steps 50
 ```
 
 ## ONNX support

@@ -4,7 +4,7 @@
 # order of defaults determines the order in which configs override each other
 defaults:
   - _self_
-  - data: ljspeech
+  - data: corpus-small
   - model: matcha
   - callbacks: default
   - logger: tensorboard # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
@@ -30,7 +30,7 @@ defaults:
 # task name, determines output directory path
 task_name: "train"
 
-run_name: ???
+run_name: corpus-small
 
 # tags to help you identify your experiments
 # you can overwrite this in experiment configs
@@ -45,7 +45,7 @@ train: True
 test: True
 
 # simply provide checkpoint path to resume training
-ckpt_path: null
+ckpt_path: logs/train/corpus-small/runs/2025-11-17_16-51-22/checkpoints/checkpoint_epoch=2599.ckpt
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: 1234

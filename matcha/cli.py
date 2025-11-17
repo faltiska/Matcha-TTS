@@ -4,6 +4,8 @@ import os
 import warnings
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")  # Use non-interactive backend for headless environments
 import matplotlib.pyplot as plt
 import numpy as np
 import soundfile as sf
