@@ -41,14 +41,10 @@ I should look into n_feats: 80, it is possible that increasing it may help.
 I changed from fp16 to bf16 in configs/trainer/default.yaml
 
 # Increase model capacity
-Increase Decoder Parameters (Model Capacity): The Matcha-TTS paper notes often mention that "light" models can be underparameterized. For high-quality, high-fidelity results, consider increasing the model capacity, particularly the decoder. One suggestion found in community notes is to increase the decoder's parameter count (e.g., from 10M to around 40M). This allows the model to better map the conditional flow matching to the highly complex mel-spectrogram target distribution, improving timbre fidelity.
-
-# Adjust Learning Rate
-Since the loss is no longer dropping, you are likely in a local minimum. Try one of the following:
-Reduce the Learning Rate dramatically (e.g., by a factor of 5 or 10) and continue training. 
-This allows the optimizer to make smaller, more precise steps toward a better minimum.
-Run More Epochs: 2000 epochs is not the upper limit for TTS training. 
-If the model is not overfitting (check your validation loss/quality), let it run for much longer (e.g., 5000-10,000 epochs) after the learning rate reduction.
+Increase Decoder Parameters (Model Capacity): The Matcha-TTS paper notes often mention that "light" models can be underparameterized. 
+For high-quality, high-fidelity results, consider increasing the model capacity, particularly the decoder. 
+One suggestion found in community notes is to increase the decoder's parameter count (e.g., from 10M to around 40M). 
+This allows the model to better map the conditional flow matching to the highly complex mel-spectrogram target distribution, improving timbre fidelity.
 
 # Prosody (intonation, rhythm, pauses)
 This is often the hardest aspect to make sound truly human. 
@@ -65,3 +61,11 @@ Consider an External Aligner: If you're having noticeable issues with choppy spe
 failing. In modern systems, using an ASR-based forced aligner (like MFA) to generate fixed, high-quality phoneme durations and alignments 
 before training can often drastically stabilize and improve prosody. 
 This would be a significant modification to the pipeline but could break the loss plateau.
+
+# Validation frequency and early stopping
+
+I have `check_val_every_n_epoch = 5`, in trainer/default
+
+Validation in PyTorch-Lightning is only an evaluation pass; training does not halt automatically. Add an `EarlyStopping` callback to stop 
+when the validation metric degrades. Setting `check_val_every_n_epoch = 1` runs validation every epoch, giving faster feedback and allowing 
+EarlyStopping or ModelCheckpoint to act immediately; higher values trade evaluation overhead for slower feedback.
