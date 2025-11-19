@@ -6,6 +6,7 @@ import rootutils
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
+from lightning.pytorch.utilities.model_helpers import is_overridden
 
 from matcha import utils
 
@@ -86,7 +87,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if ckpt_path == "":
             log.warning("Best ckpt not found! Using current weights for testing...")
             ckpt_path = None
-        trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+        if is_overridden("test_step", model):
+            trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+        else:
+            log.info("Model has no `test_step`; skipping testing phase.")
         log.info(f"Best ckpt path: {ckpt_path}")
 
     test_metrics = trainer.callback_metrics
