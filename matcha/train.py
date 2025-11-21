@@ -47,6 +47,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 
+    # configure torch float32 matmul precision for Tensor Cores if available
+    utils.setup_cuda_matmul_precision(precision=cfg.get("float32_matmul_precision"))
+
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")  # pylint: disable=protected-access
     # Inject centralized pitch (F0) config from model.* into the datamodule constructor
     datamodule: LightningDataModule = hydra.utils.instantiate(

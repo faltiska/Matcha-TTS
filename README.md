@@ -348,3 +348,15 @@ Other source code we would like to acknowledge:
 - [Grad-TTS](https://github.com/huawei-noah/Speech-Backbones/tree/main/Grad-TTS): For the monotonic alignment search source code
 - [torchdyn](https://github.com/DiffEqML/torchdyn): Useful for trying other ODE solvers during research and development
 - [labml.ai](https://nn.labml.ai/transformers/rope/index.html): For the RoPE implementation
+
+
+## Improvements
+
+Compared to the original MatchaTTS, I did the following:
+- I have increased the decoder model capacity
+- I have switched to an AdamW optimizer
+- I have switched from HiFiGAN to Vocos
+- I have increased the TextEncoder model size
+- I have added an F0 (pitch) extractor
+- I have implemented a corpus mel and pitch precomputation script.
+- I have included a matmul precision auto-config

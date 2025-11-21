@@ -20,6 +20,33 @@ from matcha.utils import pylogger, rich_utils
 log = pylogger.get_pylogger(__name__)
 
 
+def setup_cuda_matmul_precision(precision: str = None) -> None:
+    """Automatically configure torch float32 matmul precision for Tensor Cores.
+    
+    Detects if a CUDA device with Tensor Cores is available (compute capability >= 7.0)
+    and automatically sets torch.set_float32_matmul_precision to the specified precision level.
+    This leverages Tensor Cores to trade-off precision for performance.
+    
+    :param precision: Precision level to set ('high', 'medium', or None to disable).
+    """
+    if not torch.cuda.is_available() or precision is None:
+        return
+    
+    try:
+        current_device = torch.cuda.current_device()
+        device_props = torch.cuda.get_device_properties(current_device)
+        device_name = device_props.name
+        
+        # Tensor Cores are available on compute capability 7.0 and newer (Volta, Turing, Ampere, Ada, etc.)
+        has_tensor_cores = device_props.major >= 7
+        
+        if has_tensor_cores:
+            torch.set_float32_matmul_precision(precision)
+            log.info(f"{device_name} has tensor cores, setting float32 matmul precision to '{precision}'.")
+    except Exception as e:
+        log.exception(f"Could not configure Tensor Core matmul precision.")
+
+
 def extras(cfg: DictConfig) -> None:
     """Applies optional utilities before the task is started.
 
@@ -30,6 +57,7 @@ def extras(cfg: DictConfig) -> None:
 
     :param cfg: A DictConfig object containing the config tree.
     """
+
     # return if no `extras` config
     if not cfg.get("extras"):
         log.warning("Extras config not found! <cfg.extras=null>")
