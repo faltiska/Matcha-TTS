@@ -42,8 +42,8 @@ class TextMelDataModule(LightningDataModule):
         data_statistics,
         seed,
         load_durations,
-        use_cached_mels: bool = False,
         mel_dir: Optional[str] = None,
+        f0_dir: Optional[str] = None,
         persistent_workers: bool = True,
         use_f0: bool = True,
         f0_fmin: float = 50.0,
@@ -81,8 +81,8 @@ class TextMelDataModule(LightningDataModule):
             self.hparams.use_f0,
             self.hparams.f0_fmin,
             self.hparams.f0_fmax,
-            self.hparams.use_cached_mels,
             self.hparams.mel_dir,
+            self.hparams.f0_dir,
         )
         self.validset = TextMelDataset(  # pylint: disable=attribute-defined-outside-init
             self.hparams.valid_filelist_path,
@@ -102,8 +102,8 @@ class TextMelDataModule(LightningDataModule):
             self.hparams.use_f0,
             self.hparams.f0_fmin,
             self.hparams.f0_fmax,
-            self.hparams.use_cached_mels,
             self.hparams.mel_dir,
+            self.hparams.f0_dir,
         )
 
     def train_dataloader(self):
@@ -161,8 +161,8 @@ class TextMelDataset(torch.utils.data.Dataset):
         use_f0=True,
         f0_fmin=50.0,
         f0_fmax=1100.0,
-        use_cached_mels=False,
         mel_dir=None,
+        f0_dir=None,
     ):
         self.filepaths_and_text = parse_filelist(filelist_path)
         self.n_spks = n_spks
@@ -179,13 +179,13 @@ class TextMelDataset(torch.utils.data.Dataset):
         self.use_f0 = use_f0
         self.f0_fmin = f0_fmin
         self.f0_fmax = f0_fmax
-        self.use_cached_mels = use_cached_mels
         self.mel_dir = mel_dir
+        self.f0_dir = f0_dir
 
         if data_parameters is not None:
             self.data_parameters = data_parameters
         else:
-            self.data_parameters = {"mel_mean": 0, "mel_std": 1}
+            self.data_parameters = {"mel_mean": 0, "mel_std": 1, "f0_mean": 0, "f0_std": 1}
         random.seed(seed)
         random.shuffle(self.filepaths_and_text)
 
@@ -240,7 +240,7 @@ class TextMelDataset(torch.utils.data.Dataset):
 
     def get_mel(self, filepath):
         # Try loading cached, already-normalized mel if enabled
-        if getattr(self, "use_cached_mels", False) and self.mel_dir is not None:
+        if self.mel_dir is not None:
             name = Path(filepath).stem
             npy_path = Path(self.mel_dir) / f"{name}.npy"
             if npy_path.exists():
@@ -266,11 +266,22 @@ class TextMelDataset(torch.utils.data.Dataset):
 
     def get_f0(self, filepath, expected_len):
         """
-        Estimate F0 using torchaudio YIN and align to mel length.
+        Load precomputed F0 if available, otherwise compute it using torchaudio YIN.
+        Precomputed F0 is already aligned to mel length and normalized.
 
         Returns:
             torch.Tensor: shape (1, expected_len)
         """
+        # Try loading cached, already-normalized F0 if enabled
+        if self.f0_dir is not None:
+            name = Path(filepath).stem
+            npy_path = Path(self.f0_dir) / f"{name}.npy"
+            if npy_path.exists():
+                arr = np.load(npy_path).astype(np.float32)
+                f0 = torch.from_numpy(arr).float()
+                return f0
+
+        # Compute F0 on-the-fly and normalize
         audio, sr = ta.load(filepath)
         assert sr == self.sample_rate
         # Ensure mono
@@ -299,7 +310,20 @@ class TextMelDataset(torch.utils.data.Dataset):
         elif T > expected_len:
             f0 = f0[:expected_len]
 
-        return f0.unsqueeze(0)
+        f0 = f0.unsqueeze(0)
+        
+        # Normalize F0 (only non-zero values for voiced frames)
+        f0_voiced = f0[f0 > 0]
+        if len(f0_voiced) > 0:
+            f0_normalized = torch.where(
+                f0 > 0,
+                (f0 - self.data_parameters.get("f0_mean", 0.0)) / max(self.data_parameters.get("f0_std", 1.0), 1e-5),
+                torch.zeros_like(f0)
+            )
+        else:
+            f0_normalized = f0
+
+        return f0_normalized
 
     def get_text(self, text, add_blank=True):
         text_norm, cleaned_text = text_to_sequence(text, self.cleaners)

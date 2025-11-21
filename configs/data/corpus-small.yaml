@@ -15,13 +15,17 @@ sample_rate: 22050
 hop_length: 256
 win_length: 1024
 f_min: 0
-f_max: 8000 # I could use 11025 to improve the melodic quality, but it requires a vocoder trained with same value   
+f_max: 8000 # I could use 11025 to improve the melodic quality, but it requires a vocoder trained with same value
+f0_fmin: 50.0
+f0_fmax: 1100.0
 data_statistics:  # Computed for my dataset
   mel_mean: -5.527719
   mel_std: 2.823194
+  f0_mean: 0.0
+  f0_std: 1.0
 seed: ${seed}
 load_durations: false
 
 # Cached mel options (enable after running precompute script)
-use_cached_mels: true
 mel_dir: data/Corpus-small/mels
+f0_dir: data/Corpus-small/f0
