@@ -73,14 +73,20 @@ def compute_and_save_mel(
     mel_mean: float,
     mel_std: float,
     center: bool,
-) -> Tuple[bool, str]:
+) -> Tuple[bool, str, int]:
+    """
+    Compute and save normalized mel spectrogram.
+    
+    Returns:
+        Tuple of (success: bool, error_msg: str, mel_length: int)
+    """
     try:
         audio, sr = ta.load(str(wav_path))
     except Exception as e:  # pylint: disable=broad-except
-        return False, f"Failed loading {wav_path}: {e}"
+        return False, f"Failed loading {wav_path}: {e}", 0
 
     if sr != sample_rate:
-        return False, f"Sample rate mismatch for {wav_path} (found {sr}, expected {sample_rate})"
+        return False, f"Sample rate mismatch for {wav_path} (found {sr}, expected {sample_rate})", 0
 
     try:
         mel = (
@@ -102,27 +108,28 @@ def compute_and_save_mel(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         arr = mel.numpy().astype(np.float32)
         np.save(out_path, arr)
-        return True, ""
+        mel_length = arr.shape[-1]
+        return True, "", mel_length
     except Exception as e:  # pylint: disable=broad-except
-        return False, f"Processing failed for {wav_path}: {e}"
+        return False, f"Processing failed for {wav_path}: {e}", 0
 
 
 def compute_and_save_f0(
     wav_path: Path,
     out_path: Path,
     sample_rate: int,
-    n_fft: int,
     hop_length: int,
-    win_length: int,
-    f_min: float,
-    f_max: float,
     f0_fmin: float,
     f0_fmax: float,
     f0_mean: float,
     f0_std: float,
+    expected_len: int,
 ) -> Tuple[bool, str, int]:
     """
     Compute F0 exactly as TextMelDataset.get_f0() does, aligned to mel length.
+    
+    Args:
+        expected_len: The mel spectrogram length to align F0 to
     
     Returns:
         Tuple of (success: bool, error_msg: str, frame_length: int)
@@ -140,14 +147,6 @@ def compute_and_save_f0(
         if audio.dim() == 2 and audio.size(0) > 1:
             audio = audio[:1, :]
 
-        # Compute the exact mel spectrogram length to match training
-        # This mimics mel_spectrogram() with center=False
-        # stft will have (n_fft // 2 + 1) frequency bins
-        # Number of time frames: ceil((len - win_length) / hop_length) + 1 for center=False
-        n_fft_frames = int(np.ceil((audio.shape[-1] - win_length) / hop_length)) + 1
-        # After mel projection, the time dimension stays the same
-        expected_len = n_fft_frames
-        
         frame_time = hop_length / float(sample_rate)
         # choose a small odd median smoothing window (in frames) to avoid exceeding available frames
         win_len = int(min(5, max(1, int(expected_len))))
@@ -292,7 +291,7 @@ def main():
     for i, wav_path in enumerate(unique_wavs, start=1):
         stem = wav_path.stem
         out_path = mel_dir / f"{stem}.npy"
-        success, msg = compute_and_save_mel(
+        success, msg, mel_length = compute_and_save_mel(
             wav_path=wav_path,
             out_path=out_path,
             sample_rate=sample_rate,
@@ -355,20 +354,28 @@ def main():
 
         for i, wav_path in enumerate(unique_wavs, start=1):
             stem = wav_path.stem
+            mel_npy_path = mel_dir / f"{stem}.npy"
+            
+            # Load the corresponding mel to get its length
+            if not mel_npy_path.exists():
+                print(f"[precompute_f0] ERROR: Mel not found for {wav_path}")
+                f0_failures.append((wav_path.as_posix(), "Corresponding mel file not found"))
+                continue
+            
+            mel_arr = np.load(mel_npy_path)
+            mel_length = mel_arr.shape[-1]
+            
             out_path = f0_dir / f"{stem}.npy"
             success, msg, _ = compute_and_save_f0(
                 wav_path=wav_path,
                 out_path=out_path,
                 sample_rate=sample_rate,
-                n_fft=n_fft,
                 hop_length=hop_length,
-                win_length=win_length,
-                f_min=f_min,
-                f_max=f_max,
                 f0_fmin=f0_fmin,
                 f0_fmax=f0_fmax,
                 f0_mean=f0_mean,
                 f0_std=f0_std,
+                expected_len=mel_length,
             )
             if success:
                 f0_ok += 1
