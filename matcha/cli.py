@@ -19,7 +19,8 @@ from matcha.hifigan.models import Generator as HiFiGAN
 from matcha.models.matcha_tts import MatchaTTS
 from matcha.text import sequence_to_text, text_to_sequence
 from matcha.utils.utils import assert_model_downloaded, get_user_data_dir, intersperse
-from matcha.vocos.models import load_vocoder as load_vocos
+from matcha.vocos.wrapper import load_vocoder as load_vocos
+from matcha.istftnet.wrapper import load_vocoder as load_istftnet
 
 MATCHA_URLS = {
     "matcha_ljspeech": "https://github.com/shivammehta25/Matcha-TTS-checkpoints/releases/download/v1.0/matcha_ljspeech.ckpt",
@@ -29,7 +30,8 @@ MATCHA_URLS = {
 VOCODER_URLS = {
     "hifigan_T2_v1": "https://github.com/shivammehta25/Matcha-TTS-checkpoints/releases/download/v1.0/generator_v1",  # Old url: https://drive.google.com/file/d/14NENd4equCBLyyCSke114Mv6YR_j_uFs/view?usp=drive_link
     "hifigan_univ_v1": "https://github.com/shivammehta25/Matcha-TTS-checkpoints/releases/download/v1.0/g_02500000",  # Old url: https://drive.google.com/file/d/1qpgI41wNXFcH-iKq1Y42JlBC9j0je8PW/view?usp=drive_link
-    "vocos-mel-22khz": "BSC-LT/vocos-mel-22khz",
+    "vocos_mel_22khz": "BSC-LT/vocos-mel-22khz",
+    "iSTFTNet": "Uberduck/iSTFTNet",
 }
 
 MULTISPEAKER_MODEL = {
@@ -88,7 +90,7 @@ def ensure_vocoder_available(vocoder_name):
         vocoder_path = save_dir / f"{vocoder_name}"
         assert_model_downloaded(vocoder_path, vocoder_url)
         return vocoder_path
-    elif vocoder_name in ("vocos-mel-22khz"):
+    elif vocoder_name in ("vocos_mel_22khz", "iSTFTNet"):
         return vocoder_url
     else:
         raise NotImplementedError(f"Vocoder {vocoder_name} not implemented! Available vocoders: {VOCODER_URLS}")
@@ -107,8 +109,11 @@ def load_vocoder(vocoder_name, checkpoint_path_or_model_id, device):
     if vocoder_name in ("hifigan_T2_v1", "hifigan_univ_v1"):
         vocoder = load_hifigan(checkpoint_path_or_model_id, device)
         denoiser = Denoiser(vocoder, mode="zeros")
-    elif vocoder_name in ("vocos-mel-22khz"):
+    elif vocoder_name == "vocos_mel_22khz":
         vocoder = load_vocos(checkpoint_path_or_model_id, device)
+        denoiser = None
+    elif vocoder_name == "iSTFTNet":
+        vocoder = load_istftnet()
         denoiser = None
     else:
         raise NotImplementedError(f"Vocoder {vocoder_name} not implemented! Available vocoders: {VOCODER_URLS}")
@@ -158,10 +163,6 @@ def validate_args(args):
         if args.model in MULTISPEAKER_MODEL:
             args = validate_args_for_multispeaker_model(args)
     else:
-        # When using a custom model
-        if args.vocoder not in ["hifigan_univ_v1", "vocos-mel-22khz"]:
-            warn_ = "[-] Using custom model checkpoint! I would suggest passing --vocoder hifigan_univ_v1 or --vocoder vocos-mel-22khz, unless the custom model is trained on LJ Speech."
-            warnings.warn(warn_, UserWarning)
         if args.speaking_rate is None:
             args.speaking_rate = 1.0
 
@@ -173,13 +174,6 @@ def validate_args(args):
 
 
 def validate_args_for_multispeaker_model(args):
-    if args.vocoder is not None:
-        if args.vocoder != MULTISPEAKER_MODEL[args.model]["vocoder"]:
-            warn_ = f"[-] Using {args.model} model! I would suggest passing --vocoder {MULTISPEAKER_MODEL[args.model]['vocoder']}"
-            warnings.warn(warn_, UserWarning)
-    else:
-        args.vocoder = MULTISPEAKER_MODEL[args.model]["vocoder"]
-
     if args.speaking_rate is None:
         args.speaking_rate = MULTISPEAKER_MODEL[args.model]["speaking_rate"]
 
@@ -198,13 +192,6 @@ def validate_args_for_multispeaker_model(args):
 
 
 def validate_args_for_single_speaker_model(args):
-    if args.vocoder is not None:
-        if args.vocoder != SINGLESPEAKER_MODEL[args.model]["vocoder"]:
-            warn_ = f"[-] Using {args.model} model! I would suggest passing --vocoder {SINGLESPEAKER_MODEL[args.model]['vocoder']}"
-            warnings.warn(warn_, UserWarning)
-    else:
-        args.vocoder = SINGLESPEAKER_MODEL[args.model]["vocoder"]
-
     if args.speaking_rate is None:
         args.speaking_rate = SINGLESPEAKER_MODEL[args.model]["speaking_rate"]
 
@@ -239,7 +226,7 @@ def cli():
     parser.add_argument(
         "--vocoder",
         type=str,
-        default=None,
+        default="hifigan_univ_v1",
         help="Vocoder to use (default: will use the one suggested with the pretrained model))",
         choices=VOCODER_URLS,
     )

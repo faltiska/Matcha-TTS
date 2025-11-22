@@ -104,7 +104,7 @@ def main():
         "--vocoder-name",
         type=str,
         choices=list(VOCODER_URLS.keys()),
-        default=None,
+        default="hifigan_univ_v1",
         help="Name of the vocoder to embed in the ONNX graph",
     )
     parser.add_argument(
