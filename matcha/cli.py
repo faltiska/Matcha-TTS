@@ -113,7 +113,8 @@ def load_vocoder(vocoder_name, checkpoint_path_or_model_id, device):
         vocoder = load_vocos(checkpoint_path_or_model_id, device)
         denoiser = None
     elif vocoder_name == "iSTFTNet":
-        vocoder = load_istftnet()
+        # Pass through model_id (from ensure_vocoder_available) and the selected device
+        vocoder = load_istftnet(model_id=checkpoint_path_or_model_id, device=device)
         denoiser = None
     else:
         raise NotImplementedError(f"Vocoder {vocoder_name} not implemented! Available vocoders: {VOCODER_URLS}")
