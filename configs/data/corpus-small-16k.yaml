@@ -12,7 +12,7 @@ n_spks: 1
 n_fft: 1024
 n_feats: 80
 sample_rate: 16000
-hop_length: 256
+hop_length: 192
 win_length: 1024
 f_min: 0
 f_max: 8000 # I could use 11025 to improve the melodic quality, but it requires a vocoder trained with same value

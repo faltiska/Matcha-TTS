@@ -32,4 +32,4 @@ lambda_pitch: 0.2
 # Keep defaults here; override per project if needed.
 inference:
   sample_rate: 16000
-  hop_length: 256
+  hop_length: 192
