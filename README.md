@@ -1,4 +1,4 @@
-1. Create an UV environment
+## Create an UV environment
 
 ```
 uv venv --python 3.10
@@ -7,7 +7,7 @@ uv pip install torch torchaudio torchvision --index-url https://download.pytorch
 python setup.py build_ext --inplace
 ```
 
-2. Inference
+## Inference
 Set this env var on each terminal where you want to run inference:
 ```
 set "PHONEMIZER_ESPEAK_LIBRARY=C:\Program Files\eSpeak NG\libespeak-ng.dll"
@@ -19,9 +19,7 @@ Run inference with:
 python -m matcha.cli --text "Are you listening?"
 ```
 
-I have added a new Vocoder, Vocos, used with a model trained on 24KHz audio.  
-
-3. Training
+## Training
 Delete the mels and f0 folders from the corpus, if they exist.
 Compute statistics for the corpus and update the corpus yaml with te stats:
 ```
@@ -62,5 +60,18 @@ Prepare your corpus, update configs/train.yaml, then run:
 python -m matcha.train
 ```   
 
+## Improvements
+
+Compared to the original MatchaTTS, I did the following:
+- I have increased the decoder model capacity
+- I have switched to an AdamW optimizer
+- I have added Vocos using a model trained on 24KHz audio. 
+- I have increased the TextEncoder model size
+- I have added an F0 (pitch) extractor
+- I have implemented a corpus mel and pitch precomputation script.
+- I have included a matmul precision auto-config
+
+
 
 See original [readme](ORIGINAL-README.md) too.
+
