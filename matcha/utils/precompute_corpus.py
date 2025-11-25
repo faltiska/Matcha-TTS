@@ -24,7 +24,6 @@ import torchaudio as ta
 
 from matcha.utils.model import normalize
 
-# NEW: Import mel extractor factory
 from matcha.mel.extractors import get_mel_extractor
 
 
