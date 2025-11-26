@@ -61,6 +61,11 @@ Prepare your corpus, update configs/train.yaml, then run:
 python -m matcha.train
 ```   
 
+Monitor training with: 
+```
+tensorboard --logdir=logs/train/corpus-small-24k/runs/2025-11-26_09-03-10/tensorboard/version_0
+```
+
 ## Improvements
 
 Compared to the original MatchaTTS, I did the following:
