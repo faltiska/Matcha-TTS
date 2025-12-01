@@ -50,37 +50,66 @@ class BASECFM(torch.nn.Module, ABC):
         """
         z = torch.randn_like(mu) * temperature
         t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
-        return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+        
+        if self.solver == "euler":
+            return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+        elif self.solver == "rk4":
+            return self.solve_rk4(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+        elif self.solver == "heun":
+            return self.solve_heun(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+        else:
+            raise ValueError(f"Unknown solver: {self.solver}")
 
     def solve_euler(self, x, t_span, mu, mask, spks, cond):
         """
-        Fixed euler solver for ODEs.
-        Args:
-            x (torch.Tensor): random noise
-            t_span (torch.Tensor): n_timesteps interpolated
-                shape: (n_timesteps + 1,)
-            mu (torch.Tensor): output of encoder
-                shape: (batch_size, n_feats, mel_timesteps)
-            mask (torch.Tensor): output_mask
-                shape: (batch_size, 1, mel_timesteps)
-            spks (torch.Tensor, optional): speaker ids. Defaults to None.
-                shape: (batch_size, spk_emb_dim)
-            cond: Not used but kept for future purposes
+        Euler solver for ODEs (original).
         """
-        t, _, dt = t_span[0], t_span[-1], t_span[1] - t_span[0]
-
-        # I am storing this because I can later plot it by putting a debugger here and saving it to a file
-        # Or in future might add like a return_all_steps flag
+        t = t_span[0]
         sol = []
 
         for step in range(1, len(t_span)):
+            dt = t_span[step] - t
             dphi_dt = self.estimator(x, mask, mu, t, spks, cond)
-
             x = x + dt * dphi_dt
-            t = t + dt
+            t = t_span[step]
             sol.append(x)
-            if step < len(t_span) - 1:
-                dt = t_span[step + 1] - t
+
+        return sol[-1]
+
+    def solve_rk4(self, x, t_span, mu, mask, spks, cond):
+        """
+        RK4 solver for ODEs.
+        """
+        t = t_span[0]
+        sol = []
+
+        for step in range(1, len(t_span)):
+            dt = t_span[step] - t
+            k1 = self.estimator(x, mask, mu, t, spks, cond)
+            k2 = self.estimator(x + 0.5 * dt * k1, mask, mu, t + 0.5 * dt, spks, cond)
+            k3 = self.estimator(x + 0.5 * dt * k2, mask, mu, t + 0.5 * dt, spks, cond)
+            k4 = self.estimator(x + dt * k3, mask, mu, t + dt, spks, cond)
+            
+            x = x + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+            t = t_span[step]
+            sol.append(x)
+
+        return sol[-1]
+
+    def solve_heun(self, x, t_span, mu, mask, spks, cond):
+        """
+        Heun solver for ODEs.
+        """
+        t = t_span[0]
+        sol = []
+
+        for step in range(1, len(t_span)):
+            dt = t_span[step] - t
+            k1 = self.estimator(x, mask, mu, t, spks, cond)
+            k2 = self.estimator(x + dt * k1, mask, mu, t + dt, spks, cond)
+            x = x + 0.5 * dt * (k1 + k2)
+            t = t_span[step]
+            sol.append(x)
 
         return sol[-1]
 

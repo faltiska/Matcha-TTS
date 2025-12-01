@@ -1,6 +1,7 @@
 import argparse
 import datetime as dt
 import os
+import time
 import warnings
 from pathlib import Path
 
@@ -240,10 +241,17 @@ def cli():
     parser.add_argument("--file", type=str, default=None, help="Text file to synthesize")
     parser.add_argument("--spk", type=int, default=None, help="Speaker ID")
     parser.add_argument(
+        "--solver",
+        type=str,
+        default="euler",
+        help="ODE solver to use (default: euler)",
+        choices=["euler", "rk4", "heun"],
+    )
+    parser.add_argument(
         "--temperature",
         type=float,
-        default=0.667,
-        help="Variance of the x0 noise (default: 0.667)",
+        default=0.1,
+        help="Variance of the x0 noise (default: 0.1)",
     )
     parser.add_argument(
         "--speaking_rate",
@@ -283,6 +291,7 @@ def cli():
         args.model = "custom_model"
 
     model = load_matcha(args.model, paths["matcha"], device)
+    model.decoder.solver = args.solver
     vocoder, denoiser = load_vocoder(args.vocoder, paths["vocoder"], device)
 
     texts = get_texts(args)
@@ -335,6 +344,7 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
         i = i + 1
         start_t = dt.datetime.now()
         b = batch["x"].shape[0]
+        inference_start = time.time()
         output = model.synthesise(
             batch["x"].to(device),
             batch["x_lengths"].to(device),
@@ -343,10 +353,11 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
             spks=spk.expand(b) if spk is not None else spk,
             length_scale=args.speaking_rate,
         )
-
+        inference_time = time.time() - inference_start
         output["waveform"] = to_waveform(output["mel"], vocoder, denoiser, args.denoiser_strength)
         t = (dt.datetime.now() - start_t).total_seconds()
         rtf_w = t * sample_rate / (output["waveform"].shape[-1])
+        print(f"[🍵-Batch: {i}] Inference time: {inference_time:.2f}s using {args.solver} solver with {args.steps} steps")
         print(f"[🍵-Batch: {i}] Matcha-TTS RTF: {output['rtf']:.4f}")
         print(f"[🍵-Batch: {i}] Matcha-TTS + VOCODER RTF: {rtf_w:.4f}")
         total_rtf.append(output["rtf"])
@@ -392,8 +403,7 @@ def unbatched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
         # RTF with vocoder
         t = (dt.datetime.now() - start_t).total_seconds()
         rtf_w = t * sample_rate / (output["waveform"].shape[-1])
-        print(f"[🍵-{i}] Matcha-TTS RTF: {output['rtf']:.4f}")
-        print(f"[🍵-{i}] Matcha-TTS + VOCODER RTF: {rtf_w:.4f}")
+        print(f"[🍵-{i}] Inference time: {t:.2f}s, RTF: {rtf_w:.2f}")
         total_rtf.append(output["rtf"])
         total_rtf_w.append(rtf_w)
 
@@ -413,6 +423,7 @@ def print_config(args):
     print(f"\t- Temperature: {args.temperature}")
     print(f"\t- Speaking rate: {args.speaking_rate}")
     print(f"\t- Number of ODE steps: {args.steps}")
+    print(f"\t- ODE Solver: {args.solver}")
     print(f"\t- Speaker: {args.spk}")
 
 

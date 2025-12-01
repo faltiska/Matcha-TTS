@@ -1,3 +1,7 @@
 name: CFM
-solver: euler
+
+# possible values: euler, rk4 or heun
+solver: euler 
+
+# try with 1e-5 (less noise, might reduce metallic quality)
 sigma_min: 1e-4
