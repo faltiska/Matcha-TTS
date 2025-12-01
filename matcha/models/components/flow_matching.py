@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from matcha.models.components.decoder import Decoder
+from matcha.models.components.stft_loss import MultiResolutionSTFTLoss
 from matcha.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -16,6 +17,8 @@ class BASECFM(torch.nn.Module, ABC):
         cfm_params,
         n_spks=1,
         spk_emb_dim=128,
+        use_stft_loss=False,
+        lambda_stft=0.1,
     ):
         super().__init__()
         self.n_feats = n_feats
@@ -26,6 +29,13 @@ class BASECFM(torch.nn.Module, ABC):
             self.sigma_min = cfm_params.sigma_min
         else:
             self.sigma_min = 1e-4
+        
+        self.use_stft_loss = use_stft_loss
+        self.lambda_stft = lambda_stft
+        if self.use_stft_loss:
+            self.stft_loss = MultiResolutionSTFTLoss(fft_sizes=[512, 1024, 2048])
+        else:
+            self.stft_loss = None
 
         self.estimator = None
 
@@ -114,7 +124,7 @@ class BASECFM(torch.nn.Module, ABC):
         return sol[-1]
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None):
-        """Computes diffusion loss
+        """Computes diffusion loss with optional multi-resolution STFT loss
 
         Args:
             x1 (torch.Tensor): Target
@@ -127,7 +137,7 @@ class BASECFM(torch.nn.Module, ABC):
                 shape: (batch_size, spk_emb_dim)
 
         Returns:
-            loss: conditional flow matching loss
+            loss: conditional flow matching loss + optional STFT loss
             y: conditional flow
                 shape: (batch_size, n_feats, mel_timesteps)
         """
@@ -141,19 +151,29 @@ class BASECFM(torch.nn.Module, ABC):
         y = (1 - (1 - self.sigma_min) * t) * z + t * x1
         u = x1 - (1 - self.sigma_min) * z
 
-        loss = F.mse_loss(self.estimator(y, mask, mu, t.squeeze(), spks), u, reduction="sum") / (
+        cfm_loss = F.mse_loss(self.estimator(y, mask, mu, t.squeeze(), spks), u, reduction="sum") / (
             torch.sum(mask) * u.shape[1]
         )
+        
+        # Add multi-resolution STFT loss if enabled
+        if self.use_stft_loss and self.stft_loss is not None:
+            stft_loss = self.stft_loss(y, x1, mask)
+            loss = cfm_loss + self.lambda_stft * stft_loss
+        else:
+            loss = cfm_loss
+        
         return loss, y
 
 
 class CFM(BASECFM):
-    def __init__(self, in_channels, out_channel, cfm_params, decoder_params, n_spks=1, spk_emb_dim=64):
+    def __init__(self, in_channels, out_channel, cfm_params, decoder_params, n_spks=1, spk_emb_dim=64, use_stft_loss=False, lambda_stft=0.1):
         super().__init__(
             n_feats=in_channels,
             cfm_params=cfm_params,
             n_spks=n_spks,
             spk_emb_dim=spk_emb_dim,
+            use_stft_loss=use_stft_loss,
+            lambda_stft=lambda_stft,
         )
 
         in_channels = in_channels + (spk_emb_dim if n_spks > 1 else 0)
