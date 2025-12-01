@@ -3,5 +3,6 @@ name: CFM
 # possible values: euler, rk4 or heun
 solver: euler 
 
-# try with 1e-5 (less noise, might reduce metallic quality)
-sigma_min: 1e-4
+# got much better results than with the original 1e-4
+# diffusion loss dropped below 1 in less than 1000 epochs.
+sigma_min: 1e-5
