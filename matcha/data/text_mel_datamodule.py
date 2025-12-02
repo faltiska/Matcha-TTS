@@ -251,10 +251,10 @@ class TextMelDataset(torch.utils.data.Dataset):
         try:
             dur_loc = data_dir / "durations" / f"{name}.npy"
             durs = torch.from_numpy(np.load(dur_loc).astype(int))
-
         except FileNotFoundError as e:
             raise FileNotFoundError(
-                f"Tried loading the durations but durations didn't exist at {dur_loc}, make sure you've generate the durations first using: python matcha/utils/get_durations_from_trained_model.py \n"
+                f"Tried loading the durations but durations didn't exist at {dur_loc}, make sure you've generate the durations"
+                f" first using: python matcha/utils/get_durations_from_trained_model.py \n"
             ) from e
 
         assert len(durs) == len(text), f"Length of durations {len(durs)} and text {len(text)} do not match"
@@ -298,6 +298,7 @@ class TextMelDataset(torch.utils.data.Dataset):
                 f0 = torch.from_numpy(arr).float()
                 return f0
 
+        # Compute pitch from wav file if not cached
         wav_path = self.filelist_dir / "wav" / (rel_base_path + ".wav")
         if not wav_path.exists():
             raise FileNotFoundError(f"WAV file not found: {wav_path}")

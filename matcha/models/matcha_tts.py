@@ -40,8 +40,7 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         lambda_pitch=0.2,
         pitch=None,
         inference=None,
-        use_stft_loss=False,
-        lambda_stft=0.1,
+        plot_mel_on_validation_end=False,
     ):
         super().__init__()
 
@@ -56,8 +55,7 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         self.use_precomputed_durations = use_precomputed_durations
         self.use_pitch = use_pitch
         self.lambda_pitch = lambda_pitch
-        self.use_stft_loss = use_stft_loss
-        self.lambda_stft = lambda_stft
+        self.plot_mel_on_validation_end = plot_mel_on_validation_end
         # Accept and store optional nested config group (Hydra) to avoid unexpected kwarg errors
         self.pitch = pitch
         self.inference = inference
@@ -81,8 +79,6 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             decoder_params=decoder,
             n_spks=n_spks,
             spk_emb_dim=spk_emb_dim,
-            use_stft_loss=use_stft_loss,
-            lambda_stft=lambda_stft,
         )
 
         if self.use_pitch:
@@ -273,7 +269,6 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         mu_y = mu_y.transpose(1, 2)
         
         # Compute pitch loss and apply pitch conditioning
-        pitch_loss = torch.tensor(0.0, device=y.device)
         if self.use_pitch and (f0 is not None) and (f0_mask is not None):
             f0_log = torch.where(f0 > 0, torch.log(f0 + 1e-5), torch.zeros_like(f0))
             pitch_mask = f0_mask * y_mask
@@ -281,8 +276,10 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             
             p_log_y = torch.matmul(attn.squeeze(1).transpose(1, 2), p_log.transpose(1, 2)).transpose(1, 2)
             pitch_loss = torch.sum((p_log_y - f0_log) ** 2 * pitch_mask) / (torch.sum(pitch_mask) + 1e-8)
+            pitch_loss = self.lambda_pitch * pitch_loss
+        else:
+            pitch_loss = 0
 
-        # Compute loss of the decoder
         diff_loss, _ = self.decoder.compute_loss(x1=y, mask=y_mask, mu=mu_y, spks=spks, cond=cond)
 
         if self.prior_loss:
@@ -291,4 +288,4 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         else:
             prior_loss = 0
 
-        return dur_loss, prior_loss, diff_loss, attn, (self.lambda_pitch * pitch_loss if self.use_pitch else torch.tensor(0.0, device=y.device))
+        return dur_loss, prior_loss, diff_loss, pitch_loss

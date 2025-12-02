@@ -1,2 +1,0 @@
-use_stft_loss: false
-lambda_stft: 0.1

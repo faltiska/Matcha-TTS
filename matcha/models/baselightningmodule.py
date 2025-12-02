@@ -62,6 +62,8 @@ class BaseLightningClass(LightningModule, ABC):
         f0 = batch.get("f0", None)
         f0_mask = batch.get("f0_mask", None)
 
+        # self(...) will invoke the __call__ method from the super class, 
+        # which, in its turn, invokes the forward method from matcha_tts.py
         outputs = self(
             x=x,
             x_lengths=x_lengths,
@@ -74,17 +76,14 @@ class BaseLightningClass(LightningModule, ABC):
             f0_mask=f0_mask,
         )
 
-        dur_loss, prior_loss, diff_loss = outputs[0], outputs[1], outputs[2]
-        # If model returns pitch loss as the 5th element, pick it up; else default to 0
-        pitch_loss = outputs[4] if len(outputs) >= 5 else torch.tensor(0.0, device=dur_loss.device)
-
         loss_dict = {
-            "dur_loss": dur_loss,
-            "prior_loss": prior_loss,
-            "diff_loss": diff_loss,
+            "dur_loss": outputs[0],
+            "prior_loss": outputs[1],
+            "diff_loss": outputs[2],
         }
-        if getattr(self, "use_pitch", False):
-            loss_dict["pitch_loss"] = pitch_loss
+        
+        if getattr(self.hparams, "use_pitch", False):
+            loss_dict["pitch_loss"] = outputs[3]
 
         return loss_dict
 
