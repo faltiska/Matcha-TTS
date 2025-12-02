@@ -339,6 +339,7 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
     total_rtf = []
     total_rtf_w = []
     sample_rate = getattr(model, "sample_rate")
+    hop_length = getattr(model, "hop_length")
     processed_text = [process_text(i, text, "cpu") for i, text in enumerate(texts)]
     dataloader = torch.utils.data.DataLoader(
         BatchedSynthesisDataset(processed_text),
@@ -371,7 +372,7 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
         for j in range(output["mel"].shape[0]):
             base_name = f"utterance_{j:03d}_speaker_{args.spk:03d}" if args.spk is not None else f"utterance_{j:03d}"
             length = output["mel_lengths"][j]
-            new_dict = {"mel": output["mel"][j][:, :length], "waveform": output["waveform"][j][: length * 256]}
+            new_dict = {"mel": output["mel"][j][:, :length], "waveform": output["waveform"][j][: length * hop_length]}
             location = save_to_folder(base_name, new_dict, args.output_folder, sample_rate)
             print(f"[🍵-{j}] Waveform saved: {location}")
 
