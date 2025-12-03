@@ -2,9 +2,12 @@ from abc import ABC
 
 import torch
 import torch.nn.functional as F
+from torchdiffeq import odeint, odeint_adjoint
+from torch.cuda.amp import autocast
 
 from matcha.models.components.decoder import Decoder
 from matcha.utils.pylogger import get_pylogger
+from .ode_solver_wrapper import OdeSolverWrapper
 
 log = get_pylogger(__name__)
 
@@ -48,70 +51,23 @@ class BASECFM(torch.nn.Module, ABC):
             sample: generated mel-spectrogram
                 shape: (batch_size, n_feats, mel_timesteps)
         """
-        z = torch.randn_like(mu) * temperature
-        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
-        
-        if self.solver == "euler":
-            return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
-        elif self.solver == "rk4":
-            return self.solve_rk4(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
-        elif self.solver == "heun":
-            return self.solve_heun(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+
+        if torch.cuda.is_bf16_supported():
+            dtype = torch.bfloat16
         else:
-            raise ValueError(f"Unknown solver: {self.solver}")
-
-    def solve_euler(self, x, t_span, mu, mask, spks, cond):
-        """
-        Euler solver for ODEs (original).
-        """
-        t = t_span[0]
-        sol = []
-
-        for step in range(1, len(t_span)):
-            dt = t_span[step] - t
-            dphi_dt = self.estimator(x, mask, mu, t, spks, cond)
-            x = x + dt * dphi_dt
-            t = t_span[step]
-            sol.append(x)
-
-        return sol[-1]
-
-    def solve_rk4(self, x, t_span, mu, mask, spks, cond):
-        """
-        RK4 solver for ODEs.
-        """
-        t = t_span[0]
-        sol = []
-
-        for step in range(1, len(t_span)):
-            dt = t_span[step] - t
-            k1 = self.estimator(x, mask, mu, t, spks, cond)
-            k2 = self.estimator(x + 0.5 * dt * k1, mask, mu, t + 0.5 * dt, spks, cond)
-            k3 = self.estimator(x + 0.5 * dt * k2, mask, mu, t + 0.5 * dt, spks, cond)
-            k4 = self.estimator(x + dt * k3, mask, mu, t + dt, spks, cond)
+            dtype = torch.float16
             
-            x = x + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
-            t = t_span[step]
-            sol.append(x)
+        print(f"{dtype=}")
+            
+        with autocast(dtype=dtype):
+            z = torch.randn_like(mu) * temperature
+            t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
+            return self.solve(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
 
-        return sol[-1]
-
-    def solve_heun(self, x, t_span, mu, mask, spks, cond):
-        """
-        Heun solver for ODEs.
-        """
-        t = t_span[0]
-        sol = []
-
-        for step in range(1, len(t_span)):
-            dt = t_span[step] - t
-            k1 = self.estimator(x, mask, mu, t, spks, cond)
-            k2 = self.estimator(x + dt * k1, mask, mu, t + dt, spks, cond)
-            x = x + 0.5 * dt * (k1 + k2)
-            t = t_span[step]
-            sol.append(x)
-
-        return sol[-1]
+    def solve(self, x, t_span, mu, mask, spks, cond):
+        ode_func = OdeSolverWrapper(self.estimator, mask, mu, spks, cond)
+        trajectory = odeint(ode_func, x, t_span, method=self.solver)
+        return trajectory[-1]
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None):
         """Computes diffusion loss

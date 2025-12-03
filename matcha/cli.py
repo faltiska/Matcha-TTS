@@ -248,9 +248,8 @@ def cli():
     parser.add_argument(
         "--solver",
         type=str,
-        default="euler",
-        help="ODE solver to use (default: euler)",
-        choices=["euler", "rk4", "heun"],
+        default="midpoint",
+        help="ODE solver to use (default: midpoint)",
     )
     parser.add_argument(
         "--temperature",
