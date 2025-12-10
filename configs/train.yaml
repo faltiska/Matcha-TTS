@@ -55,7 +55,7 @@ seed: 1234
 # torch float32 matmul precision for Tensor Cores
 # set to "high", "medium", or null (to disable auto-configuration)
 # only applies if GPU has Tensor Cores (compute capability >= 7.0)
-float32_matmul_precision: "high"
+float32_matmul_precision: "medium"
 
 plot_mel_on_validation_end: false
 

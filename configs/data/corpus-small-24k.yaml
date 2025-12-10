@@ -3,7 +3,7 @@ name: corpus-small-24k
 train_filelist_path: data/corpus-small-24k/train.csv
 valid_filelist_path: data/corpus-small-24k/validate.csv
 batch_size: 17
-num_workers: 12
+num_workers: 8
 persistent_workers: true
 pin_memory: True
 cleaners: [english_cleaners2]
@@ -19,15 +19,9 @@ f_max: 12000
 seed: ${seed}
 load_durations: false
 
-# Computed for speaker 1
-#data_statistics:
-#  mel_mean: -1.81633
-#  mel_std: 4.177081
-
-# for speakers 1 and 2:
 data_statistics:
-  mel_mean: -1.878392
-  mel_std: 3.519257
+  mel_mean: -2.015216
+  mel_std: 3.233246
   
 # Cache folder (the precompute script will put mels here)
 mel_dir: data/corpus-small-24k/mels
