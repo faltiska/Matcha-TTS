@@ -55,7 +55,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")  # pylint: disable=protected-access
-    model: LightningModule = hydra.utils.instantiate(cfg.model, lambda_duration=cfg.lambda_duration)
+    model: LightningModule = hydra.utils.instantiate(cfg.model)
     
     # Store audio parameters from data config into model for inference
     model.sample_rate = cfg.data.sample_rate

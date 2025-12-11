@@ -40,8 +40,6 @@ tags: ["dev"]
 # set False to skip model training
 train: True
 
-lambda_duration: 1.0
-
 # evaluate on test set, using best model weights achieved during training
 # lightning chooses best weights based on the metric specified in checkpoint callback
 test: True
