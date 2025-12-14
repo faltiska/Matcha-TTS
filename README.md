@@ -107,7 +107,25 @@ What to look for:
 - Steady decrease: Good! Model is converging smoothly
 - Oscillations: Normal early on, but persistent oscillations suggest learning rate too high
 
+# PyTorch stuff
+
+When compiling models, pytorch stores some information to be reused at later runs.
+Triton kernel cache:
+- ~/.triton/cache/
+
+TorchInductor cache: 
+- ~/.cache/torch/
+- /tmp/torchinductor_$USER/
+
+You could delete the folders to clear the cache:
+```
+rm -rf ~/.triton/cache/
+rm -rf ~/.cache/torch/
+rm -rf /tmp/torchinductor_$USER/
+```
+
 # Misc
 
 See original [readme](ORIGINAL-README.md) too.
+
 
