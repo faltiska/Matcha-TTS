@@ -114,7 +114,7 @@ def load_matcha(model_name, checkpoint_path, device):
     print(f"[!] Loading {model_name}!")
     model = MatchaTTS.load_from_checkpoint(checkpoint_path, map_location=device, weights_only=False)
     _ = model.eval()
-
+    model = torch.compile(model)
     print(f"[+] {model_name} loaded!")
     return model
 
@@ -163,6 +163,10 @@ def validate_args(args):
             warnings.warn(warn_, UserWarning)
         if args.speaking_rate is None:
             args.speaking_rate = 1.0
+        if args.spk is not None:
+            args.spk = [int(s.strip()) for s in args.spk.split(",")]
+        else:
+            args.spk = [None]
 
     if args.batched:
         assert args.batch_size > 0, "Batch size must be greater than 0"
@@ -184,14 +188,17 @@ def validate_args_for_multispeaker_model(args):
 
     spk_range = MULTISPEAKER_MODEL[args.model]["spk_range"]
     if args.spk is not None:
-        assert (
-            args.spk >= spk_range[0] and args.spk <= spk_range[-1]
-        ), f"Speaker ID must be between {spk_range} for this model."
+        spk_list = [int(s.strip()) for s in args.spk.split(",")]
+        for spk_id in spk_list:
+            assert (
+                spk_id >= spk_range[0] and spk_id <= spk_range[-1]
+            ), f"Speaker ID {spk_id} must be between {spk_range} for this model."
+        args.spk = spk_list
     else:
         available_spk_id = MULTISPEAKER_MODEL[args.model]["spk"]
         warn_ = f"[!] Speaker ID not provided! Using speaker ID {available_spk_id}"
         warnings.warn(warn_, UserWarning)
-        args.spk = available_spk_id
+        args.spk = [available_spk_id]
 
     return args
 
@@ -207,10 +214,10 @@ def validate_args_for_single_speaker_model(args):
     if args.speaking_rate is None:
         args.speaking_rate = SINGLESPEAKER_MODEL[args.model]["speaking_rate"]
 
-    if args.spk != SINGLESPEAKER_MODEL[args.model]["spk"]:
+    if args.spk is not None:
         warn_ = f"[-] Ignoring speaker id {args.spk} for {args.model}"
         warnings.warn(warn_, UserWarning)
-        args.spk = SINGLESPEAKER_MODEL[args.model]["spk"]
+    args.spk = [SINGLESPEAKER_MODEL[args.model]["spk"]]
 
     return args
 
@@ -244,7 +251,7 @@ def cli():
     )
     parser.add_argument("--text", type=str, default=None, help="Text to synthesize")
     parser.add_argument("--file", type=str, default=None, help="Text file to synthesize")
-    parser.add_argument("--spk", type=int, default=None, help="Speaker ID")
+    parser.add_argument("--spk", type=str, default=None, help="Speaker ID or comma-separated list (e.g., 0 or 0,1,2)")
     parser.add_argument(
         "--solver",
         type=str,
@@ -308,11 +315,13 @@ def cli():
 
     texts = get_texts(args)
 
-    spk = torch.tensor([args.spk], device=device, dtype=torch.long) if args.spk is not None else None
-    if len(texts) == 1 or not args.batched:
-        unbatched_synthesis(args, device, model, vocoder, denoiser, texts, spk)
-    else:
-        batched_synthesis(args, device, model, vocoder, denoiser, texts, spk)
+    spk_list = args.spk if args.spk[0] is not None else [None]
+    for spk_id in spk_list:
+        spk = torch.tensor([spk_id], device=device, dtype=torch.long) if spk_id is not None else None
+        if len(texts) == 1 or not args.batched:
+            unbatched_synthesis(args, device, model, vocoder, denoiser, texts, spk, spk_id)
+        else:
+            batched_synthesis(args, device, model, vocoder, denoiser, texts, spk, spk_id)
 
 
 class BatchedSynthesisDataset(torch.utils.data.Dataset):
@@ -339,7 +348,7 @@ def batched_collate_fn(batch):
     return {"x": x, "x_lengths": x_lengths}
 
 
-def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
+def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk, spk_id):
     total_rtf = []
     total_rtf_w = []
     sample_rate = getattr(model, "sample_rate")
@@ -374,7 +383,7 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
         total_rtf.append(output["rtf"])
         total_rtf_w.append(rtf_w)
         for j in range(output["mel"].shape[0]):
-            base_name = f"utterance_{j:03d}_speaker_{args.spk:03d}" if args.spk is not None else f"utterance_{j:03d}"
+            base_name = f"utterance_{j:03d}_speaker_{spk_id:03d}" if spk_id is not None else f"utterance_{j:03d}"
             length = output["mel_lengths"][j]
             new_dict = {"mel": output["mel"][j][:, :length], "waveform": output["waveform"][j][: length * hop_length]}
             location = save_to_folder(base_name, new_dict, args.output_folder, sample_rate)
@@ -386,13 +395,13 @@ def batched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
     print("[🍵] Enjoy the freshly whisked 🍵 Matcha-TTS!")
 
 
-def unbatched_synthesis(args, device, model, vocoder, denoiser, texts, spk):
+def unbatched_synthesis(args, device, model, vocoder, denoiser, texts, spk, spk_id):
     total_rtf = []
     total_rtf_w = []
     sample_rate = getattr(model, "sample_rate")
     for i, text in enumerate(texts):
         i = i + 1
-        base_name = f"utterance_{i:03d}_speaker_{args.spk:03d}" if args.spk is not None else f"utterance_{i:03d}"
+        base_name = f"utterance_{i:03d}_speaker_{spk_id:03d}" if spk_id is not None else f"utterance_{i:03d}"
 
         print("".join(["="] * 100))
         text = text.strip()

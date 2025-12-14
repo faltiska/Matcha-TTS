@@ -21,9 +21,12 @@ def parse_filelist(filelist_path, split_char="|"):
 
 
 """
-IMPORTANT: As of Nov 2025, all corpus train.csv/validate.csv files must use the following convention:
+All corpus train.csv/validate.csv files must use the following convention:
 - The first column is the base relative path of the audio file, without extension (e.g., "1/filename", not "1/filename.wav")
-- TextMelDataset will append '.wav' for audio files , and '.npy' for mel files.
+- Second column  should be the speaker ID
+- Third should be the text
+- Columns shouldbe separated with |
+TextMelDataset will append '.wav' for audio files, and '.npy' for mel files.
 """
 class TextMelDataModule(LightningDataModule):
     def __init__(  # pylint: disable=unused-argument

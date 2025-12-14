@@ -2,13 +2,13 @@ _target_: matcha.data.text_mel_datamodule.TextMelDataModule
 name: corpus-small-24k
 train_filelist_path: data/corpus-small-24k/train.csv
 valid_filelist_path: data/corpus-small-24k/validate.csv
-batch_size: 17
+batch_size: 12
 num_workers: 8
 persistent_workers: true
 pin_memory: True
 cleaners: [english_cleaners2]
 add_blank: True
-n_spks: 2
+n_spks: 4
 n_fft: 1024
 n_feats: 100
 sample_rate: 24000
@@ -20,8 +20,8 @@ seed: ${seed}
 load_durations: false
 
 data_statistics:
-  mel_mean: 0
-  mel_std: 1
+  mel_mean: -2.564528
+  mel_std: 3.836331
   
 # Cache folder (the precompute script will put mels here)
 mel_dir: data/corpus-small-24k/mels
