@@ -57,8 +57,6 @@ I find hifigan_T2_v1 better than hifigan_univ_v1, and Vocos at 24KHz better than
 
 Prepare your corpus, update configs/train.yaml, then run:
 ```
-export TORCHINDUCTOR_MAX_AUTOTUNE_GEMM=0
-export TORCHDYNAMO_VERBOSE=1
 python -m matcha.train
 ```   
 
@@ -122,6 +120,18 @@ You could delete the folders to clear the cache:
 rm -rf ~/.triton/cache/
 rm -rf ~/.cache/torch/
 rm -rf /tmp/torchinductor_$USER/
+```
+
+# nVidia drivers
+
+Update the drivers with:
+```
+sudo apt install cuda-drivers --update
+sudo apt install libcudnn9-cuda-13 --update
+```
+or even
+```
+sudo apt update && sudo apt full-upgrade
 ```
 
 # Misc
