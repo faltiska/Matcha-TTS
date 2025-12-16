@@ -375,7 +375,6 @@ class TextEncoder(nn.Module):
             duration_predictor_params.p_dropout,
         )
 
-    @torch.compile(dynamic=True)
     def forward(self, x, x_lengths, spks=None):
         """Run forward pass to the transformer based encoder and duration predictor
 
