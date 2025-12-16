@@ -64,11 +64,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # Compile model for faster training if enabled
     if cfg.get("compile"):
         log.info("Compiling the model.")
-        # torch._inductor.config.triton.unique_kernel_names = True
-        # torch._inductor.config.coordinate_descent_tuning = False
-        # model.encoder = torch.compile(model.encoder)    
-        # model.decoder = torch.compile(model.decoder)
-        # model.spk_emb = torch.compile(model.spk_emb)
+        # set TORCH_LOGS="recompiles" to see recompilation reasons
         model = torch.compile(model)
 
     log.info("Instantiating callbacks...")
