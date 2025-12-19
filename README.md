@@ -122,6 +122,8 @@ You could delete the folders to clear the cache:
 rm -rf ~/.triton/cache/
 rm -rf ~/.cache/torch/
 rm -rf /tmp/torchinductor_$USER/
+rm -rf ~/.nv/ComputeCache/
+rm -rf ~/.cache/torch_extensions/ 
 ```
 
 # nVidia drivers
