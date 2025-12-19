@@ -113,8 +113,16 @@ class RotaryPositionalEmbeddings(nn.Module):
 
         self.base = base
         self.d = int(d)
-        self.cos_cached = None
-        self.sin_cached = None
+
+        # Pre-allocate cache buffers to avoid repeated model recompilation
+        self.max_seq_len = 1024
+        theta = 1.0 / (self.base ** (torch.arange(0, self.d, 2).float() / self.d))
+        seq_idx = torch.arange(self.max_seq_len).float()
+        idx_theta = torch.einsum("n,d->nd", seq_idx, theta)
+        idx_theta2 = torch.cat([idx_theta, idx_theta], dim=1)
+
+        self.register_buffer('cos_cached', idx_theta2.cos()[:, None, None, :], persistent=False)
+        self.register_buffer('sin_cached', idx_theta2.sin()[:, None, None, :], persistent=False)
 
     def _build_cache(self, x: torch.Tensor):
         r"""
