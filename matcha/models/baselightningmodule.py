@@ -105,107 +105,31 @@ class BaseLightningClass(LightningModule, ABC):
                 log.info(f"Added {new_n_spks - old_n_spks} more speaker(s) to the model.")
 
     def training_step(self, batch: Any, batch_idx: int):
-        # trying to avoid the repeated recompilation of the model caused by changing parameter sizes in get_losses.
-        torch._dynamo.maybe_mark_dynamic(batch["x"], 0)
+        # avoids repeated recompilation of the model caused by changing parameter sizes.
         torch._dynamo.mark_dynamic(batch["x"], 1)
         torch._dynamo.mark_dynamic(batch["y"], 2)
         
         loss_dict = self.get_losses(batch)
         bs = batch["x"].shape[0]
-        self.log(
-            "step",
-            float(self.global_step),
-            on_step=True,
-            prog_bar=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-
-        self.log(
-            "sub_loss/train_dur_loss",
-            loss_dict["dur_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-        self.log(
-            "sub_loss/train_prior_loss",
-            loss_dict["prior_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-        self.log(
-            "sub_loss/train_diff_loss",
-            loss_dict["diff_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-
         total_loss = sum(loss_dict.values())
-        self.log(
-            "loss/train",
-            total_loss,
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            prog_bar=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
+
+        self.log("step", float(self.global_step), on_step=True, prog_bar=True, logger=True, sync_dist=True,batch_size=bs)
+        self.log("sub_loss/train_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/train_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/train_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("loss/train", total_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True, sync_dist=True, batch_size=bs)
 
         return {"loss": total_loss, "log": loss_dict}
 
     def validation_step(self, batch: Any, batch_idx: int):
         loss_dict = self.get_losses(batch)
         bs = batch["x"].shape[0]
-        self.log(
-            "sub_loss/val_dur_loss",
-            loss_dict["dur_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-        self.log(
-            "sub_loss/val_prior_loss",
-            loss_dict["prior_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-        self.log(
-            "sub_loss/val_diff_loss",
-            loss_dict["diff_loss"],
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
-
         total_loss = sum(loss_dict.values())
-        self.log(
-            "loss/val",
-            total_loss,
-            on_step=True,
-            on_epoch=True,
-            logger=True,
-            prog_bar=True,
-            sync_dist=True,
-            batch_size=bs,
-        )
+
+        self.log("sub_loss/val_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/val_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/val_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log( "loss/val", total_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True, sync_dist=True, batch_size=bs)
 
         return total_loss
 
