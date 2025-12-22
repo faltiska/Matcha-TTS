@@ -15,7 +15,7 @@ from matcha.hifigan.denoiser import Denoiser
 from matcha.hifigan.env import AttrDict
 from matcha.hifigan.models import Generator as HiFiGAN
 from matcha.models.matcha_tts import MatchaTTS
-from matcha.text import sequence_to_text, text_to_sequence
+from matcha.text import sequence_to_text, to_phoneme_ids, to_phonemes
 from matcha.utils.utils import assert_model_downloaded, get_user_data_dir, intersperse
 from matcha.vocos24k.wrapper import load_model as load_vocos
 
@@ -50,8 +50,10 @@ def plot_spectrogram_to_numpy(spectrogram, filename):
 
 def process_text(i: int, text: str, device: torch.device):
     print(f"[{i}] - Input text: {text}")
+    phonemes = to_phonemes(text, ["multilingual_phonemizer"])
+    phoneme_ids = to_phoneme_ids(phonemes)
     x = torch.tensor(
-        intersperse(text_to_sequence(text, ["english_cleaners2"])[0], 0),
+        intersperse(phoneme_ids, 0),
         dtype=torch.long,
         device=device,
     )[None]

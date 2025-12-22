@@ -24,6 +24,8 @@ import torchaudio as ta
 from matcha.utils.model import normalize
 
 from matcha.mel.extractors import get_mel_extractor
+from matcha.text.phonemizers import multilingual_phonemizer
+from matcha.text.symbols import symbols
 
 
 def _load_yaml_config(path: Path) -> Dict[str, Any]:
@@ -173,16 +175,35 @@ def main():
 
     # Gather unique wavs from the train + valid filelists
     rel_and_abs_wavs: List[Tuple[str, Path]] = []
+    all_entries = []
     for fl in [train_filelist, valid_filelist]:
         if not fl.exists():
             raise FileNotFoundError(f"Filelist not found: {fl}")
         entries = parse_filelist(fl)
+        all_entries.extend(entries)
         for parts in entries:
             if not parts:
                 continue
             rel_base = parts[0]
             wav_path = (fl.parent / "wav" / (rel_base + ".wav")).resolve()
             rel_and_abs_wavs.append((rel_base, wav_path))
+
+    # Validate IPA symbols
+    language = cfg.get("language", "en-us")
+    symbol_set = set(symbols)
+    unknown_symbols = set()
+    print(f"[precompute_corpus] Validating IPA symbols (language: {language})...")
+    for parts in all_entries:
+        if len(parts) >= 3:
+            text = parts[2]
+            ipa = multilingual_phonemizer(text, language=language)
+            for char in ipa:
+                if char not in symbol_set:
+                    unknown_symbols.add(char)
+    if unknown_symbols:
+        print(f"[precompute_corpus] WARNING: Found {len(unknown_symbols)} unknown symbols: {sorted(unknown_symbols)}")
+    else:
+        print(f"[precompute_corpus] All IPA symbols are valid.")
 
     total = len(rel_and_abs_wavs)
     ok = 0
@@ -233,6 +254,8 @@ def main():
         },
         "mel_mean": mel_mean,
         "mel_std": mel_std,
+        "language": cfg.get("language", "en-us"),
+        "unknown_symbols": sorted(unknown_symbols) if unknown_symbols else [],
         "num_files": total,
         "num_ok": ok,
         "num_fail": len(failures),

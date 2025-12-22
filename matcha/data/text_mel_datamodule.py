@@ -8,7 +8,7 @@ import torchaudio as ta
 from lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader
 
-from matcha.text import text_to_sequence
+from matcha.text import to_phoneme_ids, to_phonemes
 from matcha.mel.extractors import get_mel_extractor
 from matcha.utils.model import fix_len_compatibility, normalize
 from matcha.utils.utils import intersperse
@@ -37,7 +37,7 @@ class TextMelDataModule(LightningDataModule):
         batch_size,
         num_workers,
         pin_memory,
-        cleaners,
+        phonemizers,
         add_blank,
         n_spks,
         n_fft,
@@ -71,7 +71,7 @@ class TextMelDataModule(LightningDataModule):
         self.trainset = TextMelDataset(  # pylint: disable=attribute-defined-outside-init
             self.hparams.train_filelist_path,
             self.hparams.n_spks,
-            self.hparams.cleaners,
+            self.hparams.phonemizers,
             self.hparams.add_blank,
             self.hparams.n_fft,
             self.hparams.n_feats,
@@ -89,7 +89,7 @@ class TextMelDataModule(LightningDataModule):
         self.validset = TextMelDataset(  # pylint: disable=attribute-defined-outside-init
             self.hparams.valid_filelist_path,
             self.hparams.n_spks,
-            self.hparams.cleaners,
+            self.hparams.phonemizers,
             self.hparams.add_blank,
             self.hparams.n_fft,
             self.hparams.n_feats,
@@ -146,7 +146,7 @@ class TextMelDataset(torch.utils.data.Dataset):
         self,
         filelist_path,
         n_spks,
-        cleaners,
+        phonemizers,
         add_blank=True,
         n_fft=1024,
         n_mels=80,
@@ -165,7 +165,7 @@ class TextMelDataset(torch.utils.data.Dataset):
         self.filelist_dir = self.filelist_path.parent
         self.filepaths_and_text = parse_filelist(filelist_path)
         self.n_spks = n_spks
-        self.cleaners = cleaners
+        self.phonemizers = phonemizers
         self.add_blank = add_blank
         self.n_fft = n_fft
         self.n_mels = n_mels
@@ -197,27 +197,34 @@ class TextMelDataset(torch.utils.data.Dataset):
 
     def get_datapoint(self, filepath_and_text):
         # rel_base_path now includes speaker subfolder, e.g., '1/filename'
-        if len(filepath_and_text) == 3:
-            rel_base_path, spk, text = filepath_and_text[0], int(filepath_and_text[1]), filepath_and_text[2]
-        else:
-            rel_base_path, spk, text = filepath_and_text[0], None, filepath_and_text[1]
+        rel_base_path = filepath_and_text[0]
+        spk = int(filepath_and_text[1])
+        text = filepath_and_text[2]
 
         # rel_base_base is like "1/abc"
         wav_path = self.filelist_dir / "wav" / (rel_base_path + ".wav")
         if not wav_path.exists():
             raise FileNotFoundError(f"WAV file not found: {wav_path}")
+
+        phonemes = to_phonemes(text, self.phonemizers)
+        phoneme_ids = to_phoneme_ids(phonemes)
+        if self.add_blank:
+            phoneme_ids = intersperse(phoneme_ids, 0)
+        phoneme_ids = torch.IntTensor(phoneme_ids)
         
-        text, cleaned_text = self.get_text(text, add_blank=self.add_blank)
         mel = self.get_mel(rel_base_path)
 
-        durations = self.get_durations(wav_path, text) if self.load_durations else None
+        if self.load_durations:
+            durations = self.get_durations(wav_path, phoneme_ids)
+        else:
+            durations = None
 
         sample = {
-            "x": text,
+            "x": phoneme_ids,
             "y": mel,
             "spk": spk,
             "filepath": rel_base_path,
-            "x_text": cleaned_text,
+            "x_text": phonemes,
             "durations": durations,
         }
 
@@ -260,13 +267,6 @@ class TextMelDataset(torch.utils.data.Dataset):
         mel = self.mel_extractor(audio).squeeze()
         mel = normalize(mel, self.data_parameters["mel_mean"], self.data_parameters["mel_std"])
         return mel
-
-    def get_text(self, text, add_blank=True):
-        text_norm, cleaned_text = text_to_sequence(text, self.cleaners)
-        if self.add_blank:
-            text_norm = intersperse(text_norm, 0)
-        text_norm = torch.IntTensor(text_norm)
-        return text_norm, cleaned_text
 
     def __getitem__(self, index):
         datapoint = self.get_datapoint(self.filepaths_and_text[index])
