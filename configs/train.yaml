@@ -46,6 +46,7 @@ test: True
 
 # simply provide checkpoint path to resume training
 ckpt_path: null 
+# logs/train/corpus-small-24k/runs/2025-12-21_08-44-49/checkpoints/checkpoint_epoch=099.ckpt 
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: 1234
@@ -53,9 +54,10 @@ seed: 1234
 # torch float32 matmul precision for Tensor Cores
 # set to "high", "medium", or null (to disable auto-configuration)
 # only applies if GPU has Tensor Cores (compute capability >= 7.0)
-float32_matmul_precision: "medium"
+float32_matmul_precision: "high"
 
+# speeds up training a bit, I don't need this 
 plot_mel_on_validation_end: false
 
 # Set to true to compile the model for training
-compile: true  
+compile: true

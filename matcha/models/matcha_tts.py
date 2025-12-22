@@ -15,6 +15,7 @@ from matcha.utils.model import (
     generate_path,
     sequence_mask,
 )
+from super_monotonic_align import maximum_path
 
 log = utils.get_pylogger(__name__)
 
@@ -192,20 +193,21 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         else:
             # Use MAS to find most likely alignment `attn` between text and mel-spectrogram
             with torch.no_grad():
-                const = -0.5 * math.log(2 * math.pi) * self.n_feats
-                factor = -0.5 * torch.ones(mu_x.shape, dtype=mu_x.dtype, device=mu_x.device)
-                y_square = torch.matmul(factor.transpose(1, 2), y**2)
-                y_mu_double = torch.matmul(2.0 * (factor * mu_x).transpose(1, 2), y)
-                mu_square = torch.sum(factor * (mu_x**2), 1).unsqueeze(-1)
-                log_prior = y_square - y_mu_double + mu_square + const
+                # keep calculation in float 32 even if training is in a lower precision, duration loss values are very small
+                with torch.amp.autocast(device_type=mu_x.device.type, enabled=False):
+                    mu_x_fp32 = mu_x.float()
+                    y_fp32 = y.float()
+                    
+                    const = -0.5 * math.log(2 * math.pi) * self.n_feats
+                    factor = -0.5 * torch.ones(mu_x_fp32.shape, dtype=torch.float32, device=mu_x.device)
+                    y_square = torch.matmul(factor.transpose(1, 2), y_fp32**2)
+                    y_mu_double = torch.matmul(2.0 * (factor * mu_x_fp32).transpose(1, 2), y_fp32)
+                    mu_square = torch.sum(factor * (mu_x_fp32**2), 1).unsqueeze(-1)
+                    log_prior = y_square - y_mu_double + mu_square + const
 
-                from super_monotonic_align import maximum_path
-                attn = maximum_path(log_prior, attn_mask.squeeze(1).to(torch.int32), dtype=log_prior.dtype)
-
-                # from matcha.utils.monotonic_align import maximum_path_cpu
-                # attn = maximum_path_cpu(log_prior, attn_mask.squeeze(1).to(torch.int32))
-                
-                attn = attn.detach()
+                    attn = maximum_path(log_prior, attn_mask.squeeze(1).to(torch.int32), log_prior.dtype)
+    
+                    attn = attn.detach().to(mu_x.dtype)
 
         # Compute loss between predicted log-scaled durations and those obtained from MAS
         # refered to as prior loss in the paper
@@ -246,8 +248,14 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         diff_loss, _ = self.decoder.compute_loss(x1=y, mask=y_mask, mu=mu_y, spks=spks, cond=cond)
 
         if self.prior_loss:
-            prior_loss = torch.sum(0.5 * ((y - mu_y) ** 2 + math.log(2 * math.pi)) * y_mask)
-            prior_loss = prior_loss / (torch.sum(y_mask) * self.n_feats)
+            # keep calculation in float 32 even if training is in a lower precision, duration loss values are very small.
+            with torch.amp.autocast(device_type=y.device.type, enabled=False):
+                mu_y_fp32 = mu_y.float()
+                y_fp32 = y.float()
+                y_mask_fp32 = y_mask.float()
+
+                prior_loss = torch.sum(0.5 * ((y_fp32 - mu_y_fp32) ** 2 + math.log(2 * math.pi)) * y_mask_fp32)
+                prior_loss = prior_loss / (torch.sum(y_mask_fp32) * self.n_feats)
         else:
             prior_loss = 0
 
