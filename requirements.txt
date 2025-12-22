@@ -6,6 +6,7 @@ lightning>=2.6.0
 torchmetrics>=1.8.2
 torchcodec>=0.8.1
 torchdiffeq>=0.2.5
+torch-ema>=0.3
 
 # --------- hydra --------- #
 hydra-core
@@ -32,7 +33,6 @@ Cython
 numpy
 einops
 inflect
-Unidecode
 scipy
 torchaudio
 matplotlib
