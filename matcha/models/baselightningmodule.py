@@ -116,8 +116,11 @@ class BaseLightningClass(LightningModule, ABC):
         loss_dict = self.get_losses(batch)
         bs = batch["x"].shape[0]
         total_loss = sum(loss_dict.values())
-
-        self.log("step", float(self.global_step), on_step=True, prog_bar=True, logger=True, sync_dist=True,batch_size=bs)
+        
+        # I am passing batch_size explicitly to avoid a warning from lightning/pytorch/utilities/data.py 
+        # Trying to infer the `batch_size` from an ambiguous collection. The batch size we found is 28. 
+        # To avoid any miscalculations, use `self.log(..., batch_size=batch_size)`.
+        self.log("step", float(self.global_step), on_step=True, prog_bar=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/train_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/train_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/train_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
@@ -130,6 +133,9 @@ class BaseLightningClass(LightningModule, ABC):
         bs = batch["x"].shape[0]
         total_loss = sum(loss_dict.values())
 
+        # I am passing batch_size explicitly to avoid a warning from lightning/pytorch/utilities/data.py 
+        # Trying to infer the `batch_size` from an ambiguous collection. The batch size we found is 28. 
+        # To avoid any miscalculations, use `self.log(..., batch_size=batch_size)`.
         self.log("sub_loss/val_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/val_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/val_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
