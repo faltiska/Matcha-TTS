@@ -12,7 +12,3 @@ defaults:
 tags: ["ljspeech"]
 
 run_name: ljspeech_min
-
-
-model:
-  out_size: 172
