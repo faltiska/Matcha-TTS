@@ -198,10 +198,13 @@ class MatchaTTS(BaseLightningClass):  # 🍵
 
                 # attn = maximum_path(log_prior, attn_mask.squeeze(1).to(torch.int32), log_prior.dtype)
                 attn = monotonic_align.maximum_path_cpu(log_prior, attn_mask.squeeze(1))
-
-        # Compute loss between predicted log-scaled durations and those obtained from MAS
-        # refered to as prior loss in the paper
+                
+        # torch.sum(attn.unsqueeze(1), -1)) says how many mel frames each text token aligns to
+        # x_mask has 1s for valid text tokens, 0s for padding positions, to ensure loss is only calculated on 
+        # valid tokens, preventing attention to padding.
         logw_ = torch.log(1e-8 + torch.sum(attn.unsqueeze(1), -1)) * x_mask
+        # logw - log-scaled durations calculated by the TextEncoder's duration predictor
+        # logw_ - log-scaled durations calculated the Monotonic Alignment Search algorithm. 
         dur_loss = duration_loss(logw, logw_, x_lengths)
 
         # Align encoded text with mel-spectrogram and get mu_y segment

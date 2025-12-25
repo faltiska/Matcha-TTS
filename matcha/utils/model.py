@@ -42,6 +42,7 @@ def generate_path(duration, mask):
 
 
 def duration_loss(logw, logw_, lengths):
+    # Mean squared error between predicted and calculated log-scaled durations.
     loss = torch.sum((logw - logw_) ** 2) / torch.sum(lengths)
     return loss
 
