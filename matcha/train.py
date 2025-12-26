@@ -49,9 +49,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 
-    # configure torch float32 matmul precision for Tensor Cores if available
-    utils.setup_cuda_matmul_precision(precision=cfg.get("float32_matmul_precision"))
-
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")  # pylint: disable=protected-access
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
@@ -76,7 +73,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         logging.getLogger('torch._inductor').setLevel(logging.ERROR)
 
         # export TORCH_LOGS="recompiles" to see recompilation reasons
-
         # Don't compile the entire model, because it is a Lightning module
         model.forward = torch.compile(model.forward)
 

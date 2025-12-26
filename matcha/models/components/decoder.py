@@ -105,9 +105,7 @@ class TimestepEmbedding(nn.Module):
     def forward(self, sample, condition=None):
         if condition is not None:
             sample = sample + self.cond_proj(condition)
-
-        dtype = self.linear_1.weight.dtype
-        sample = self.linear_1(sample.to(dtype))
+        sample = self.linear_1(sample)
 
         if self.act is not None:
             sample = self.act(sample)

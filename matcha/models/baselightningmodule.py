@@ -73,6 +73,7 @@ class BaseLightningClass(LightningModule, ABC):
             "dur_loss": outputs[0],
             "prior_loss": outputs[1],
             "diff_loss": outputs[2],
+            "attn_diag": outputs[3],
         }
 
         return loss_dict
@@ -118,6 +119,7 @@ class BaseLightningClass(LightningModule, ABC):
         self.log("sub_loss/train_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/train_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/train_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/train_attn_diag", loss_dict["attn_diag"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("loss/train", total_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True, sync_dist=True, batch_size=bs)
 
         return {"loss": total_loss, "log": loss_dict}
@@ -133,6 +135,7 @@ class BaseLightningClass(LightningModule, ABC):
         self.log("sub_loss/val_dur_loss", loss_dict["dur_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/val_prior_loss", loss_dict["prior_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log("sub_loss/val_diff_loss", loss_dict["diff_loss"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
+        self.log("sub_loss/val_attn_diag", loss_dict["attn_diag"], on_step=True, on_epoch=True, logger=True, sync_dist=True, batch_size=bs)
         self.log( "loss/val", total_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True, sync_dist=True, batch_size=bs)
 
         return total_loss

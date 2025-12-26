@@ -1,11 +1,15 @@
 ## Create an UV environment
 
 ```
+sudo apt install cuda-drivers --update
+sudo apt install libcudnn9-cuda-13 --update
 uv venv --python 3.10
 .venv\Scripts\activate
-uv pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu130
+uv pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu130 --upgrade
+uv pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/nightly/cu130 --upgrade
+uv pip install -r requirements.txt --upgrade
 python setup.py build_ext --inplace --force
-uv pip install git+https://github.com/supertone-inc/super-monotonic-align.git
+uv pip install git+https://github.com/supertone-inc/super-monotonic-align.git --upgrade
 ```
 
 ## Inference
