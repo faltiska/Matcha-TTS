@@ -78,9 +78,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # export TORCH_LOGS="recompiles" to see recompilation reasons
 
         # Don't compile the entire model, because it is a Lightning module
-        model.encoder = torch.compile(model.encoder)
-        model.decoder = torch.compile(model.decoder)
-        model.spk_emb = torch.compile(model.spk_emb)
+        model.forward = torch.compile(model.forward)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
