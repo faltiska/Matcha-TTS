@@ -20,7 +20,6 @@ from omegaconf import open_dict
 from tqdm.auto import tqdm
 
 from matcha.mel.extractors import get_mel_extractor
-from matcha.utils.model import normalize
 from matcha.utils.logging_utils import pylogger
 
 log = pylogger.get_pylogger(__name__)
