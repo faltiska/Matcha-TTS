@@ -19,8 +19,8 @@ seed: ${seed}
 load_durations: false
 
 data_statistics:
-  mel_mean: -2.564528
-  mel_std: 3.836331
+  mel_mean: -3.186903
+  mel_std: 5.36849
   
 # Cache folder (the precompute script will put mels here)
 mel_dir: data/corpus-small-24k/mels

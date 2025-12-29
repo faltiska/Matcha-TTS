@@ -199,11 +199,6 @@ class TextMelDataset(torch.utils.data.Dataset):
         language = csv_row[2]
         text = csv_row[3]
 
-        # rel_base_base is like "1/abc"
-        wav_path = self.filelist_dir / "wav" / (rel_base_path + ".wav")
-        if not wav_path.exists():
-            raise FileNotFoundError(f"WAV file not found: {wav_path}")
-
         phonemes = to_phonemes(text, language=language)
         phoneme_ids = to_phoneme_ids(phonemes)
         if self.add_blank:
