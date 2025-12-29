@@ -1,12 +1,11 @@
 ## Create an UV environment
 
 ```
-sudo apt install cuda-drivers --update
-sudo apt install libcudnn9-cuda-13 --update
 uv venv --python 3.10
 .venv\Scripts\activate
-uv pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu130 --upgrade
-uv pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/nightly/cu130 --upgrade
+uv pip install torch torchaudio torchvision torchcodec --index-url https://download.pytorch.org/whl/cu130 --upgrade
+  or 
+uv pip install torch torchaudio torchvision torchcodec --index-url https://download.pytorch.org/whl/nightly/cu130 --upgrade
 uv pip install -r requirements.txt --upgrade
 python setup.py build_ext --inplace --force
 uv pip install git+https://github.com/supertone-inc/super-monotonic-align.git --upgrade
@@ -20,6 +19,20 @@ python -m matcha.cli --text "You're leaving?" --vocoder vocos --checkpoint_path 
 ```
 
 ## Training
+
+### Check your corpus
+Filter out files that are longer than N seconds
+```
+python -m matcha.utils.filter_by_wav_duration data/corpus-small-24k/train.csv 12
+```
+
+Check if the corpus uses any unknown IPA symbol. 
+eSpeak could generate a symbol we do not have in our symbols.py map.
+```
+python -m matcha.utils.test_corpus_ipa data/corpus-small-24k/train.csv
+```
+
+### Calculate corpus statistics
 Delete the mels folders from the corpus, if they exist.
 Compute statistics for the corpus and update the corpus yaml with te stats:
 ```
@@ -29,6 +42,7 @@ It will output something like
 {'mel_mean': -1.7744582891464233, 'mel_std': 4.116815090179443}
 Take the values and put them in the yaml file.
 
+### Prepare spectrograms
 Precompute mel spectrogram cache to speed up training. 
 This avoids recomputing mels every epoch and reduces data-loading overhead.
 ```
@@ -53,8 +67,7 @@ which will output a file called vocoder-test24k.wav
 You can compare the reconstituted files to the original input wav, to asses the quality of the vocoder.
 I find hifigan_T2_v1 better than hifigan_univ_v1, and Vocos at 24KHz better than hifigan_T2_v1.
 
-
-Prepare your corpus, update configs/train.yaml, then run:
+### Train
 ```
 python -m matcha.train
 ```   
@@ -79,42 +92,17 @@ Compared to the original MatchaTTS, I did the following:
 - added Vocos using a model trained on 24KHz audio 
 - increased the TextEncoder model size
 - implemented a corpus mel precomputation script
-- included a matmul precision auto-config
-- added 2 more ODE solvers 
+- switch to the torch built in ODE solver 
 - switched to the Super-MAS monotonic_align implementation
 - found a series of performance improvements 
 - made changes to get the model to compile
 
-# Learning gradients 
-
-The gradient norm charts tell you about training stability and convergence:
-- What gradient norms mean:
-- Total norm: Overall magnitude of all gradients combined 
-- Too high (>10): Gradients exploding, model unstable 
-- Too low (<0.001): Gradients vanishing, model not learning 
-- Healthy: 0.1-5 range, gradually decreasing over time
-
-Per-layer norms: Which parts of your model are learning
-- Encoder vs Decoder vs Flow matching components 
-- If one is much larger, that component dominates learning
-- If one is near zero, that component isn't learning
-
-What to look for:
-- Spikes: Sudden jumps indicate instability - may need lower learning rate or gradient clipping 
-- Flat lines: Model stopped learning - learning rate too low or saturated
-- Steady decrease: Good! Model is converging smoothly
-- Oscillations: Normal early on, but persistent oscillations suggest learning rate too high
+Most important learning point after 2 weeks of struggling to get the compiled 
+model to train properly: leave the matmul precision on "highest".  
 
 # PyTorch stuff
 
 When compiling models, pytorch stores some information to be reused at later runs.
-Triton kernel cache:
-- ~/.triton/cache/
-
-TorchInductor cache: 
-- ~/.cache/torch/
-- /tmp/torchinductor_$USER/
-
 You could delete the folders to clear the cache:
 ```
 rm -rf ~/.triton/cache/
